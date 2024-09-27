@@ -1,17 +1,24 @@
--- Data Cleaning Project
+### World Layoffs (Data Cleaning Project):
 
--- 1. Remove duplicates (if any)
--- 2. Standardize the data 
--- 3. Null Values or blank values
--- 4. Remove unnecessary columns/rows
+#### source: https://www.kaggle.com/datasets/swaptr/layoffs-2022
 
--- source: https://www.kaggle.com/datasets/swaptr/layoffs-2022
+#### Steps taken to clean data: 
 
+1. Remove duplicates (if any)
+2. Standardize the data 
+3. Null Values or blank values
+4. Remove unnecessary columns/rows
+
+- Checking out the data:
+
+```bash
 SELECT * 
 FROM layoffs;
+```
 
--- creating a copy of raw data to work on
- 
+- Creating a copy of raw data to work on:
+
+```bash 
 CREATE TABLE layoffs_staging
 LIKE layoffs;
 
@@ -21,13 +28,14 @@ FROM layoffs;
 
 SELECT * 
 FROM layoffs_staging;
+```
 
--- ------------------- 1. Finding duplicates ----------------------
+#### 1. Finding duplicates:
 
--- total records before removing duplicates = 2361 
+- Total records before removing duplicates = 2361 
+- Indexing the rows using ROW_NUMBER to find duplicates.
 
--- indexing the rows using ROW_NUMBER to find duplicates
-
+```bash
 WITH duplicates_cte AS 
 (
 SELECT * ,
@@ -40,17 +48,19 @@ FROM layoffs_staging
 SELECT *
 FROM duplicates_cte
 WHERE row_num > 1;
+```
 
--- verifying the above query results
+- Verifying the above query results:
 
+```bash
 SELECT * 
 FROM layoffs_staging
 WHERE company = 'Cazoo';
+```
 
--- a DELETE statement is like an UPDATE statement
--- unlike MSSQL/PostgreSQL, MySQl doesn't support DELETE in a CTE. Hence another staged table 
--- is created with a new row_number column
+- A DELETE statement is like an UPDATE statement. Unlike MSSQL/PostgreSQL, MySQl doesn't support DELETE in a CTE. Hence another staged table is created with a new row_number column.
 
+```bash
 CREATE TABLE `layoffs_staging2` (
   `company` text,
   `location` text,
@@ -63,9 +73,10 @@ CREATE TABLE `layoffs_staging2` (
   `funds_raised_millions` int DEFAULT NULL,
   `row_num` INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+```
 
--- inserting data into the second staged table
-
+- Inserting data into the second staged table:
+```bash
 INSERT INTO layoffs_staging2
 SELECT * ,
 ROW_NUMBER() OVER(
@@ -74,35 +85,45 @@ ROW_NUMBER() OVER(
                  ) AS row_num
 FROM layoffs_staging;
 
+```
+
+- Removing duplicates from the second staged table:
+
+```bash
 SELECT * 
 FROM layoffs_staging2
 WHERE row_num > 1;
-
--- removing duplicates
 
 DELETE
 FROM layoffs_staging2
 WHERE row_num > 1;
+```
 
+- Total records after removing duplicates = 2356
+
+```bash
 SELECT COUNT(*) 
 FROM layoffs_staging2;
+```
 
-SELECT * 
-FROM layoffs_staging2;
+#### 2. Standardizing Data:
 
--- ------------------- 2. Standardizing Data ----------------------
+- Removing any leading/trailing spaces:
 
+```bash
 SELECT company, TRIM(company) AS company_name
 FROM layoffs_staging2;
 
 UPDATE layoffs_staging2
 SET company = TRIM(company);
 
--- --------------------
 SELECT DISTINCT industry
 FROM layoffs_staging2
 ORDER BY industry;
+```
+- Merging industries with same functions:
 
+```bash
 SELECT *
 FROM layoffs_staging2
 WHERE industry LIKE 'Crypto%';
@@ -110,9 +131,10 @@ WHERE industry LIKE 'Crypto%';
 UPDATE layoffs_staging2
 SET industry = 'Crypto'
 WHERE industry LIKE 'Crypto%';
+```
+- Removing any leading/trailing characters:
 
--- --------------------
-
+```bash
 SELECT DISTINCT country, TRIM(TRAILING '.' FROM country)
 FROM layoffs_staging2
 ORDER BY country;
@@ -120,9 +142,10 @@ ORDER BY country;
 UPDATE layoffs_staging2
 SET country = TRIM(TRAILING '.' FROM country)
 WHERE country LIKE 'United States%';
+```
+- Extracting date from string and updating to date data type:
 
--- ------------------
-
+```bash
 SELECT `date`, STR_TO_DATE(`date`, '%m/%d/%Y')
 FROM layoffs_staging2
 ORDER BY country;
@@ -132,10 +155,11 @@ SET `date` = STR_TO_DATE(`date`, '%m/%d/%Y');
 
 ALTER TABLE layoffs_staging2
 MODIFY COLUMN `date` DATE;
+```
 
+#### 3. Finding Null/Blank values to either populate or delete:
 
--- ---------3. Finding Null/Blank values to either populate or delete--------------
-
+```bash
 SELECT *
 FROM layoffs_staging2
 WHERE industry LIKE '' OR industry IS NULL;
@@ -148,10 +172,11 @@ AND percentage_laid_off IS NULL;
 UPDATE layoffs_staging2
 SET industry = NULL
 WHERE industry = '';
+```
 
+- This method can be used on large datasets:
 
--- this method can be used on large datasets
-
+```bash
 SELECT *
 FROM layoffs_staging t1
 JOIN layoffs_staging t2
@@ -159,18 +184,21 @@ JOIN layoffs_staging t2
 WHERE (t1.industry = '' OR t1.industry IS NULL) 
 AND t2.industry IS NOT NULL;
 
+
 UPDATE layoffs_staging2 t1
 JOIN layoffs_staging2 t2
 	ON t1.company = t2.company
 SET t1.industry = t2.industry
 WHERE (t1.industry = '' OR t1.industry IS NULL) 
 AND t2.industry IS NOT NULL;
+```
 
--- this method can be used in a small dataset as it requires to specify conditions
+- This method can be used in a small dataset as it requires to specify conditions
 
+```bash
 UPDATE layoffs_staging2
 SET industry = CASE company
-				WHEN 'Airbnb' THEN 'Travel'
+		WHEN 'Airbnb' THEN 'Travel'
                 WHEN 'Carvana' THEN 'Transportation'
                 WHEN 'Juul' THEN 'Consumer'
                 ELSE industry
@@ -180,24 +208,29 @@ WHERE company IN ('Airbnb', 'Carvana', 'Juul');
 SELECT *
 FROM layoffs_staging2
 WHERE company = 'Airbnb'  OR company = 'Carvana' OR company = 'Juul';
+```
 
+#### 4. Removing unnecessary columns/rows:
 
--- -----------------4. Removing unnecessary columns/rows------------------------------
-
+```bash
 SELECT *
 FROM layoffs_staging2
 WHERE total_laid_off IS NULL
 AND percentage_laid_off IS NULL;
+
 
 DELETE
 FROM layoffs_staging2
 WHERE total_laid_off IS NULL
 AND percentage_laid_off IS NULL;
 
--- -------------------
+
 ALTER TABLE layoffs_staging2
 DROP COLUMN row_num;
+```
 
+- Total records after deleting = 1995
 
--- total records after deleting = 1995
+```bash
 SELECT COUNT(*) FROM layoffs_staging2;
+```

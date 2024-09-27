@@ -1,6 +1,6 @@
 ### World Layoffs (Data Cleaning Project):
 
-#### source: https://www.kaggle.com/datasets/swaptr/layoffs-2022
+#### Source: https://www.kaggle.com/datasets/swaptr/layoffs-2022
 
 #### Steps taken to clean data: 
 

@@ -1,8 +1,11 @@
--- Data Cleaning
+-- Data Cleaning Project
+
 -- 1. Remove duplicates (if any)
 -- 2. Standardize the data 
 -- 3. Null Values or blank values
 -- 4. Remove unnecessary columns/rows
+
+-- source: https://www.kaggle.com/datasets/swaptr/layoffs-2022
 
 SELECT * 
 FROM layoffs;
@@ -23,14 +26,14 @@ FROM layoffs_staging;
 
 -- total records before removing duplicates = 2361 
 
--- indexing the rows using row number to find duplicates
+-- indexing the rows using ROW_NUMBER to find duplicates
 
 WITH duplicates_cte AS 
 (
 SELECT * ,
 ROW_NUMBER() OVER(
 	PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, 
-				 `date`, stage, country, funds_raised_millions
+				`date`, stage, country, funds_raised_millions
                  ) AS row_num
 FROM layoffs_staging
 )
@@ -44,10 +47,9 @@ SELECT *
 FROM layoffs_staging
 WHERE company = 'Cazoo';
 
--- a delete statement is like an update statement, in MySQL we cannot delete in a CTE
--- in MSSQL/PostgreSQL it can be done. Hence another staged table is created with 
--- a new
- row_number column
+-- a DELETE statement is like an UPDATE statement
+-- unlike MSSQL/PostgreSQL, MySQl doesn't support DELETE in a CTE. Hence another staged table 
+-- is created with a new row_number column
 
 CREATE TABLE `layoffs_staging2` (
   `company` text,
@@ -62,13 +64,14 @@ CREATE TABLE `layoffs_staging2` (
   `row_num` INT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
--- inserting data into the second copy table
+-- inserting data into the second staged table
 
 INSERT INTO layoffs_staging2
 SELECT * ,
 ROW_NUMBER() OVER(
-	PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, `date`, stage, 
-				 country, funds_raised_millions) AS row_num
+	PARTITION BY company, location, industry, total_laid_off, percentage_laid_off, 
+				`date`, stage, country, funds_raised_millions
+                 ) AS row_num
 FROM layoffs_staging;
 
 SELECT * 
@@ -81,8 +84,6 @@ DELETE
 FROM layoffs_staging2
 WHERE row_num > 1;
 
--- total records before removing duplicates = 2356
-
 SELECT COUNT(*) 
 FROM layoffs_staging2;
 
@@ -91,7 +92,7 @@ FROM layoffs_staging2;
 
 -- ------------------- 2. Standardizing Data ----------------------
 
-SELECT company, TRIM(company) AS f_company
+SELECT company, TRIM(company) AS company_name
 FROM layoffs_staging2;
 
 UPDATE layoffs_staging2
@@ -132,8 +133,8 @@ SET `date` = STR_TO_DATE(`date`, '%m/%d/%Y');
 ALTER TABLE layoffs_staging2
 MODIFY COLUMN `date` DATE;
 
--- --------------------
--- 3. Finding Null/Blank values to either populate or delete
+
+-- ---------3. Finding Null/Blank values to either populate or delete--------------
 
 SELECT *
 FROM layoffs_staging2
@@ -180,8 +181,8 @@ SELECT *
 FROM layoffs_staging2
 WHERE company = 'Airbnb'  OR company = 'Carvana' OR company = 'Juul';
 
--- ------------------
--- 4. Removing unnecessary columns/rows
+
+-- -----------------4. Removing unnecessary columns/rows------------------------------
 
 SELECT *
 FROM layoffs_staging2
@@ -197,8 +198,6 @@ AND percentage_laid_off IS NULL;
 ALTER TABLE layoffs_staging2
 DROP COLUMN row_num;
 
--- -------------------
+
 -- total records after deleting = 1995
-
 SELECT COUNT(*) FROM layoffs_staging2;
-

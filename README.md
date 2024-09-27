@@ -234,3 +234,9 @@ DROP COLUMN row_num;
 ```bash
 SELECT COUNT(*) FROM layoffs_staging2;
 ```
+
+### Acknowledgement: 
+Thank you to [Alex freberg](https://youtu.be/4UltKCnnnTA?si=zHnfOLTztzYiaKEh) for creating and guiding through this project.
+
+
+
